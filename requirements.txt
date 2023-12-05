@@ -1,0 +1,5 @@
+dataclasses
+typing
+requests
+re
+os

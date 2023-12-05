@@ -138,6 +138,8 @@ class Story:
 
     def new_scene(self) -> Scene:
         self.director.set_context(self.dump())
+        print("director context")
+        print(self.director.context)
         raw_name = self.director.prompt(f"what is the name of the next scene? Please put the name in brackets, eg [scene name]")
         raw_setting = self.director.prompt(f"what is the setting of the next scene?")
         raw_ensemble = self.director.prompt(f"who is in the next scene? Please list the characters in the scene, use the @ symbol to denote the names and separate them with commas")
@@ -216,7 +218,7 @@ class Story:
     def dump(self):
         cast_text = "\n".join([agent.name for agent in self.cast])
 
-        return f"{self.name} by {self.director.name}\n Cast" + cast_text + "\n" + "\n".join([scene.dump() for scene in self.scenes])
+        return f"{self.name} by {self.director.llm.model_identifier}\n Cast:\n" + cast_text + "\n" + "\n".join([scene.dump() for scene in self.scenes])
     
     def save(self, filename: str):
         with open(filename, "w") as f:
