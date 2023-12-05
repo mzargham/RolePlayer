@@ -82,6 +82,9 @@ class Agent:
         thought = self.llm.prompt(thinking)
         self.update_context(f"{self.name}[thinking]: {thought}")
 
+    def dump(self):
+        return f"{self.name}: {self.context}"
+
 @dataclass
 class Line:
     speaker: Agent
@@ -120,7 +123,7 @@ class Story:
         self.director = Agent("director", llm, f"The name of this production is:\, {self.name} \n  the desription of this production is:\n {self.description}")
 
     def create_cast(self):
-        raw_cast = self.director.prompt(f"who is in the cast? Please list the characters in the cast, use the @ symbol to denote the names and separate them with commas")
+        raw_cast = self.director.prompt(f"who is in the cast? Please list the characters in the cast; names should contain no spaces and there should be no duplicates; use the @ symbol to denote the names and separate them with commas")
         cast = re.findall(r'@(\w+)', raw_cast)
 
         for agent in cast:
@@ -166,7 +169,7 @@ class Story:
         self.scenes.append(scene)
 
     def scene_over(self, scene: Scene) -> bool:
-        raw = self.director.llm.prompt(f"is {scene.name} over? please respond 'yes' or 'no'")
+        raw = self.director.prompt(f"is {scene.name} over? please respond clearly with 'yes' or 'no'")
 
         # Use regex to find 'yes' or 'no' in the response
         match_yes = re.search(r'\byes\b', raw, re.IGNORECASE)
@@ -182,16 +185,16 @@ class Story:
             raise ValueError("The response is not clear: 'yes' or 'no' was not found")
         
     def story_over(self) -> bool:
-        raw = self.director.llm.prompt(f"is {self.name} over? please respond 'yes' or 'no'")
+        raw = self.director.prompt(f"Do we need to start another scene? please respond clearly with 'yes' or 'no'")
 
         # Use regex to find 'yes' or 'no' in the response
         match_yes = re.search(r'\byes\b', raw, re.IGNORECASE)
         match_no = re.search(r'\bno\b', raw, re.IGNORECASE)
 
         if match_yes:
-            return True
-        elif match_no:
             return False
+        elif match_no:
+            return True
         else:
             # Handle cases where the response is not clear
             # You might want to raise an exception or return a default value
@@ -211,20 +214,31 @@ class Story:
 
         if self.director is None:
             self.hire_director()
+            if verbose:
+                print(f"Hired director named {self.director.llm.model_identifier}")
         if self.cast == []:
             self.create_cast()
+            if verbose:
+                print(f"Created cast with {len(self.cast)} characters")
+                print(f"Cast: {[agent.name for agent in self.cast]}")
     
         while not self.story_over():
             scene = self.new_scene()
+            if verbose:
+                print(f"Created scene named {scene.name}")
+                print(f"Scene setting: {scene.setting}")
             while not self.scene_over(scene):
                 line = self.new_line(scene)
                 scene.append_line(line)
+                if verbose:
+                    print(line.dump())
             self.append_scene(scene)
         
-        if verbose:
-            print(self.dump())
+        #if verbose:
+        #    print(self.dump())
 
-#test strings
+#test
 name = "The Wizard and the Robot"
 description = "The Wizard and the Robot is a 3 scene play involving 2 characters. It is in the style of Socratic dialogue. The first scene takes place in a Medival Castle, the Wizard's home. The Robot asks the Wizard 3 questions. The second scence takes place in a futuristic setting. The Robot again asks the Wizard 3 questions. In the third and final scene the Wizard and the Robot are revealed to be talking through time-wormhole. The wizard begin's to ask questions, the Robot doesn't want to reveal anything that will harm the past, when the Wizard asks a question that the Robot feels is dangerous, he abruptly closes the time-wormhole, ending the play."
-    
+twatr = Story(name=name,description=description)
+twatr.play(verbose=True)
