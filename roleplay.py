@@ -120,7 +120,7 @@ class Story:
     scenes: List[Scene] = field(default_factory=list)
 
     def hire_director(self, llm: Llm= Llm()):
-        self.director = Agent("director", llm, f"The name of this production is:\, {self.name} \n  the desription of this production is:\n {self.description}")
+        self.director = Agent("director", llm, f"The name of this production is:\, {self.name} \n  the desription of this production is:\n {self.description}; you are simulating the role of director of this production based on the context provided.")
 
     def create_cast(self):
         raw_cast = self.director.prompt(f"who is in the cast? Please list the characters in the cast; names should contain no spaces and there should be no duplicates; use the @ symbol to denote the names and separate them with commas")
@@ -137,23 +137,23 @@ class Story:
         return None
 
     def new_scene(self) -> Scene:
-        self.director.set_context(self.dump())
-        print("director context")
-        print(self.director.context)
+        #print(self.director.context)
         raw_name = self.director.prompt(f"what is the name of the next scene? Please put the name in brackets, eg [scene name]")
-        raw_setting = self.director.prompt(f"what is the setting of the next scene?")
-        raw_ensemble = self.director.prompt(f"who is in the next scene? Please list the characters in the scene, use the @ symbol to denote the names and separate them with commas")
-        
         # Extract the name of the scene from brackets
         name_match = re.search(r'\[(.*?)\]', raw_name)
         name = name_match.group(1) if name_match else "Unnamed Scene"
+        self.director.update_context(f"The scene name: {name}")
 
+        raw_setting = self.director.prompt(f"what is the setting of the next scene?")
         # Extract the setting of the scene
         setting = raw_setting if raw_setting else "Undefined Setting"
+        self.director.update_context(f"The scene setting: {setting}")
 
-        # Extract the ensemble of the scene
+        raw_ensemble = self.director.prompt(f"who is in the next scene? Please list the characters in the scene, use the @ symbol to denote the names and separate them with commas")
+    # Extract the ensemble of the scene
         ensemble = re.findall(r'@(\w+)', raw_ensemble)
         ensemble_agents = [self.get_agent_by_name(agent_name) for agent_name in ensemble if self.get_agent_by_name(agent_name)]
+        self.director.update_context(f"The characters in the scene are: {[agent.name for agent in ensemble_agents]}")
 
         return Scene(name, setting, ensemble_agents, [])
 
