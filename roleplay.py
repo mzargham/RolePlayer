@@ -3,6 +3,7 @@ from typing import List
 
 import requests
 from os import environ
+import re
 
 @dataclass
 class Llm:
@@ -63,12 +64,22 @@ class Agent:
     llm: Llm
     context: str
 
+    def prompt(self, text: str) -> str:
+
+        textwithcontext = f"Given your experiences as {self.name}, {self.context}\n {text}"
+
+        return self.llm.prompt(textwithcontext)
+    
+    def set_context(self, text: str):
+        self.context = text
+
     def update_context(self, text: str):
         self.context += text
 
     def sensemake(self):
         thinking = self.llm.prompt(f"{self.context} given your experiences as {self.name}, what are you thinking now?")
-        self.update_context(self.llm.prompt(thinking))
+        thought = self.llm.prompt(thinking)
+        self.update_context(f"{self.name}[thinking]: {thought}")
 
 @dataclass
 class Line:
@@ -85,7 +96,13 @@ class Scene:
     ensemble: List[Agent]
     lines: List[Line]
 
+    def append_line(self, line: Line):
+        raw_line = line.dump()
+        for agent in self.ensemble:
+            agent.update_context(raw_line)
+            agent.sensemake()
 
+        self.lines.append(line)
 
     def dump(self):
         return f"{self.name}: ({self.setting})\n" + "\n".join([line.dump() for line in self.lines])
@@ -93,13 +110,116 @@ class Scene:
 @dataclass
 class Story:
     name: str
-    director: Agent
-    cast: List[Agent]
     description: str
-    scenes: List[Scene]
+    director: Agent = None
+    cast: List[Agent] = []
+    scenes: List[Scene] = []
+
+    def hire_director(self, llm: Llm):
+        self.director = Agent("director", llm, f"The name of this production is:\, {self.name} \n  the desription of this production is:\n {self.description}")
+
+    def create_cast(self):
+        raw_cast = self.director.prompt(f"who is in the cast? Please list the characters in the cast, use the @ symbol to denote the names and separate them with commas")
+        cast = re.findall(r'@(\w+)', raw_cast)
+
+        for agent in cast:
+            private_backstory = self.director.prompt(f"what is {agent}'s private backstory? Be clear about their values, their goals, their fears, and their relationships with other characters.")
+            self.cast.append(Agent(agent, Llm(), private_backstory))
+
+    def get_agent_by_name(self, name: str) -> Agent:
+        for agent in self.cast:
+            if agent.name == name:
+                return agent
+        return None
+
+    def new_scene(self) -> Scene:
+        self.director.set_context(self.dump())
+        raw_name = self.director.prompt(f"what is the name of the next scene? Please put the name in brackets, eg [scene name]")
+        raw_setting = self.director.prompt(f"what is the setting of the next scene?")
+        raw_ensemble = self.director.prompt(f"who is in the next scene? Please list the characters in the scene, use the @ symbol to denote the names and separate them with commas")
+        
+        # Use regex to find the name of the scene in brackets
+        name = re.search(r'\[(.*?)\]', raw_name)
+
+        # Use regex to find the setting of the scene
+        setting = re.search(r'\bthe\b', raw_setting)
+
+        # Use regex to find the ensemble of the scene
+        ensemble = re.findall(r'@(\w+)', raw_ensemble)
+
+        return Scene(name, setting, ensemble, [])
+    
+    def append_scene(self, scene: Scene):
+        self.scenes.append(scene)
+
+    def new_line(self, scene: Scene) -> Line:
+        raw_speaker = self.director.prompt(f"who is speaking? Please use the @ symbol to denote the name of the speaker")
+        speaker_name = re.search(r'@(\w+)', raw_speaker)
+        speaker = self.get_agent_by_name(speaker_name)
+
+        raw_text = self.speaker.prompt(f"what do you, {speaker_name}, say?")
+        
+        # Use regex to find the name of the speaker
+        speaker = re.search(r'@(\w+)', raw_speaker)
+
+        return Line(speaker, raw_text)
+
+    def scene_over(self, scene: Scene) -> bool:
+        raw = self.director.llm.prompt(f"is {scene.name} over? please respond 'yes' or 'no'")
+
+        # Use regex to find 'yes' or 'no' in the response
+        match_yes = re.search(r'\byes\b', raw, re.IGNORECASE)
+        match_no = re.search(r'\bno\b', raw, re.IGNORECASE)
+
+        if match_yes:
+            return True
+        elif match_no:
+            return False
+        else:
+            # Handle cases where the response is not clear
+            # You might want to raise an exception or return a default value
+            raise ValueError("The response is not clear: 'yes' or 'no' was not found")
+        
+    def story_over(self) -> bool:
+        raw = self.director.llm.prompt(f"is {self.name} over? please respond 'yes' or 'no'")
+
+        # Use regex to find 'yes' or 'no' in the response
+        match_yes = re.search(r'\byes\b', raw, re.IGNORECASE)
+        match_no = re.search(r'\bno\b', raw, re.IGNORECASE)
+
+        if match_yes:
+            return True
+        elif match_no:
+            return False
+        else:
+            # Handle cases where the response is not clear
+            # You might want to raise an exception or return a default value
+            raise ValueError("The response is not clear: 'yes' or 'no' was not found")
+
 
     def dump(self):
         cast_text = "\n".join([agent.llm.model_dentifer+" as "+agent.name for agent in self.cast])
 
         return f"{self.name} by {self.director.name}\n Cast" + cast_text + "\n" + "\n".join([scene.dump() for scene in self.scenes])
+    
+    def save(self, filename: str):
+        with open(filename, "w") as f:
+            f.write(self.dump())
+    
+    def play(self, verbose: bool = False):
+
+        if self.director is None:
+            self.hire_director()
+        if self.cast == []:
+            self.create_cast()
+    
+        while not self.story_over():
+            scene = self.new_scene()
+            while not self.scene_over(scene):
+                line = self.new_line(scene)
+                scene.append_line(line)
+            self.append_scene(scene)
+        
+        if verbose:
+            print(self.dump())
     
