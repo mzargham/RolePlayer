@@ -169,40 +169,52 @@ class Story:
         self.scenes.append(scene)
 
     def scene_over(self, scene: Scene) -> bool:
-        raw = self.director.prompt(f"is {scene.name} over? please respond clearly with 'yes' or 'no'")
-
-        # Use regex to find 'yes' or 'no' in the response
-        match_yes = re.search(r'\byes\b', raw, re.IGNORECASE)
-        match_no = re.search(r'\bno\b', raw, re.IGNORECASE)
-
-        if match_yes:
-            return True
-        elif match_no:
+        if len(scene.lines) == 0:
             return False
+        elif len(scene.lines) > 10:
+            return True
         else:
-            # Handle cases where the response is not clear
-            # You might want to raise an exception or return a default value
-            raise ValueError("The response is not clear: 'yes' or 'no' was not found")
+            raw = self.director.prompt(f"is {scene.name} over? please respond clearly with 'yes' or 'no'")
+
+            # Use regex to find 'yes' or 'no' in the response
+            match_yes = re.search(r'\byes\b', raw, re.IGNORECASE)
+            match_no = re.search(r'\bno\b', raw, re.IGNORECASE)
+
+            if match_yes:
+                return True
+            elif match_no:
+                return False
+            else:
+                # Handle cases where the response is not clear
+                # You might want to raise an exception or return a default value
+                raise ValueError("The response is not clear: 'yes' or 'no' was not found")
         
     def story_over(self) -> bool:
-        raw = self.director.prompt(f"Do we need to start another scene? please respond clearly with 'yes' or 'no'")
-
-        # Use regex to find 'yes' or 'no' in the response
-        match_yes = re.search(r'\byes\b', raw, re.IGNORECASE)
-        match_no = re.search(r'\bno\b', raw, re.IGNORECASE)
-
-        if match_yes:
+        if len(self.scenes) == 0:
             return False
-        elif match_no:
+        elif len(self.scenes) > 5:
             return True
         else:
-            # Handle cases where the response is not clear
-            # You might want to raise an exception or return a default value
-            raise ValueError("The response is not clear: 'yes' or 'no' was not found")
+            raw = self.director.prompt(f"Do we need to start another scene? please respond clearly with 'yes' or 'no'")
+
+            print(raw)
+
+            # Use regex to find 'yes' or 'no' in the response
+            match_yes = re.search(r'\byes\b', raw, re.IGNORECASE)
+            match_no = re.search(r'\bno\b', raw, re.IGNORECASE)
+
+            if match_yes:
+                return False
+            elif match_no:
+                return True
+            else:
+                # Handle cases where the response is not clear
+                # You might want to raise an exception or return a default value
+                raise ValueError("The response is not clear: 'yes' or 'no' was not found")
 
 
     def dump(self):
-        cast_text = "\n".join([agent.llm.model_identifer+" as "+agent.name for agent in self.cast])
+        cast_text = "\n".join([agent.name for agent in self.cast])
 
         return f"{self.name} by {self.director.name}\n Cast" + cast_text + "\n" + "\n".join([scene.dump() for scene in self.scenes])
     
