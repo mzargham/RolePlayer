@@ -212,6 +212,8 @@ class Story:
             else:
                 # Handle cases where the response is not clear
                 # You might want to raise an exception or return a default value
+                print(raw)
+                return True
                 raise ValueError("The response is not clear: 'yes' or 'no' was not found")
 
 
