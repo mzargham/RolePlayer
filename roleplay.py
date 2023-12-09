@@ -157,7 +157,7 @@ class Story:
 
         return Scene(name, setting, ensemble_agents, [])
 
-    def new_line(self, scene: Scene) -> Line:
+    def new_line(self) -> Line:
         raw_speaker = self.director.prompt(f"who is speaking? Please use the @ symbol to denote the name of the speaker")
         speaker_name_match = re.search(r'@(\w+)', raw_speaker)
         speaker_name = speaker_name_match.group(1) if speaker_name_match else "Unknown Speaker"
@@ -217,9 +217,7 @@ class Story:
                 raise ValueError("The response is not clear: 'yes' or 'no' was not found")
 
 
-    def dump(self):
-        cast_text = "\n".join([agent.name for agent in self.cast])
-
+    def dump(self): 
         return f"{self.name} by {self.director.llm.model_identifier}\n Cast:\n" + cast_text + "\n" + "\n".join([scene.dump() for scene in self.scenes])
     
     def save(self, filename: str):
@@ -244,7 +242,7 @@ class Story:
                 print(f"Created scene named {scene.name}")
                 print(f"Scene setting: {scene.setting}")
             while not self.scene_over(scene):
-                line = self.new_line(scene)
+                line = self.new_line()
                 scene.append_line(line)
                 if verbose:
                     print(line.dump())
